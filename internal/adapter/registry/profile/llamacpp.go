@@ -1,5 +1,7 @@
 package profile
 
+import "fmt"
+
 // LlamaCppResponse represents the response structure from llama.cpp /v1/models endpoint
 // Reference: https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md
 //
@@ -30,12 +32,37 @@ type LlamaCppModel struct {
 // Provides detailed information about model architecture and capabilities
 // Reserved for future capability inference enhancements
 type LlamaCppMeta struct {
-	VocabType int   `json:"vocab_type"`  // Vocabulary type identifier
-	NVocab    int   `json:"n_vocab"`     // Vocabulary size
-	NCtxTrain int   `json:"n_ctx_train"` // Training context length
-	NEmbd     int   `json:"n_embd"`      // Embedding dimensions
-	NParams   int64 `json:"n_params"`    // Total parameter count
-	Size      int64 `json:"size"`        // Model file size in bytes
+	VocabType LlamaCppVocabType `json:"vocab_type"`  // Vocabulary type identifier
+	NVocab    int               `json:"n_vocab"`     // Vocabulary size
+	NCtxTrain int               `json:"n_ctx_train"` // Training context length
+	NEmbd     int               `json:"n_embd"`      // Embedding dimensions
+	NParams   int64             `json:"n_params"`    // Total parameter count
+	Size      int64             `json:"size"`        // Model file size in bytes
+}
+
+// LlamaCppVocabType tolerates both the numeric vocab_type llama.cpp normally
+// emits and the boolean form seen from some builds, so a single unexpected
+// field type doesn't abort parsing of the whole /v1/models response.
+type LlamaCppVocabType int
+
+func (v *LlamaCppVocabType) UnmarshalJSON(data []byte) error {
+	var n int
+	if err := json.Unmarshal(data, &n); err == nil {
+		*v = LlamaCppVocabType(n)
+		return nil
+	}
+
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		if b {
+			*v = 1
+		} else {
+			*v = 0
+		}
+		return nil
+	}
+
+	return fmt.Errorf("vocab_type: unsupported value %s", data)
 }
 
 // LlamaCppProps represents the response from llama.cpp /props endpoint

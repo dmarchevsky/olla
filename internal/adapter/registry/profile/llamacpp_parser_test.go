@@ -525,6 +525,41 @@ func TestLlamaCppParser_EdgeCases(t *testing.T) {
 		assert.Equal(t, constants.RecipeGGUF, *model.Details.Format)
 	})
 
+	t.Run("handles boolean vocab_type in meta field", func(t *testing.T) {
+		// Some llama.cpp builds emit vocab_type as a JSON boolean rather than
+		// the usual numeric identifier; parsing must not abort the whole
+		// response over a single unexpected field type.
+		response := `{
+			"object": "list",
+			"data": [
+				{
+					"id": "model-with-bool-vocab-type.gguf",
+					"object": "model",
+					"created": 1704067200,
+					"owned_by": "llamacpp",
+					"meta": {
+						"vocab_type": true,
+						"n_vocab": 32000,
+						"n_ctx_train": 4096,
+						"n_embd": 4096,
+						"n_params": 6738415616,
+						"size": 4080000000
+					}
+				}
+			]
+		}`
+
+		models, err := parser.Parse([]byte(response))
+		require.NoError(t, err)
+		require.Len(t, models, 1)
+
+		model := models[0]
+		assert.Equal(t, "model-with-bool-vocab-type.gguf", model.Name)
+		require.NotNil(t, model.Details)
+		require.NotNil(t, model.Details.Format)
+		assert.Equal(t, constants.RecipeGGUF, *model.Details.Format)
+	})
+
 	t.Run("handles models array in dual format response", func(t *testing.T) {
 		// llama.cpp can return both 'data' and 'models' arrays (Ollama compatibility)
 		// Parser should only use 'data' array
