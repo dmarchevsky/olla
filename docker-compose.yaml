@@ -14,16 +14,16 @@ services:
       dockerfile: Dockerfile.source
     container_name: olla
     ports:
-      - "40114:40114"
+      - "${PORT}:${PORT}"
     volumes:
       # Mount your local config (comment out if using default)
-      - ./config/config.local.yaml:/config/config.yaml:ro
+      - ${HOST_CONFIG}:/config/config.yaml:ro
     environment:
       - OLLA_CONFIG_FILE=/config/config.yaml
       - OLLA_LOG_LEVEL=info
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:40114/internal/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/internal/health"]
       interval: 30s
       timeout: 10s
       retries: 3
