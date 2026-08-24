@@ -11,6 +11,7 @@ import (
 	"github.com/thushan/olla/internal/adapter/health"
 	"github.com/thushan/olla/internal/adapter/registry"
 	"github.com/thushan/olla/internal/adapter/registry/profile"
+	"github.com/thushan/olla/internal/adapter/registry/routing"
 	"github.com/thushan/olla/internal/config"
 	"github.com/thushan/olla/internal/core/domain"
 	"github.com/thushan/olla/internal/core/ports"
@@ -84,6 +85,15 @@ func (s *DiscoveryService) Start(ctx context.Context) error {
 			// optimistic, discovery) takes effect. Without this, registries fall
 			// back to strict regardless of what the operator configured.
 			RoutingStrategy: &s.registryConfig.RoutingStrategy,
+		}
+		// The discovery service isn't wired into registryConfig.Discovery here, so the
+		// "discovery" routing strategy has nothing to refresh against on a cache miss.
+		// DiscoveryStrategy guards against the resulting nil at request time, but warn
+		// at startup so the misconfiguration is obvious rather than silently degrading
+		// every miss to a rejection.
+		if s.registryConfig.RoutingStrategy.Type == routing.StrategyDiscovery {
+			s.logger.Warn("routing_strategy.type is 'discovery' but no discovery service is wired into the registry; " +
+				"discovery-on-miss will reject requests instead of refreshing endpoints")
 		}
 		var err error
 		s.registry, err = registry.NewModelRegistry(registryConfig, s.logger)

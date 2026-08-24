@@ -88,6 +88,24 @@ func (s *DiscoveryStrategy) GetRoutableEndpoints(
 			)
 	}
 
+	if s.discovery == nil {
+		s.logger.Warn("Discovery service not configured, rejecting request",
+			"model", modelName)
+
+		return nil, ports.NewRoutingDecision(
+				s.Name(),
+				ports.RoutingActionRejected,
+				constants.RoutingReasonDiscoveryServiceUnavailable,
+			), domain.NewModelRoutingError(
+				modelName,
+				s.Name(),
+				"rejected",
+				len(healthyEndpoints),
+				modelEndpoints,
+				fmt.Errorf("model %s not available: discovery service not configured", modelName),
+			)
+	}
+
 	discoveryTimeout := s.options.DiscoveryTimeout
 	// Guard against a zero timeout from user config overrides — context.WithTimeout(ctx, 0) expires immediately.
 	if discoveryTimeout <= 0 {

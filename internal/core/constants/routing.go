@@ -30,6 +30,7 @@ const (
 	RoutingReasonDiscoveryFailedAllFallback    = "discovery_failed_all_fallback"
 	RoutingReasonDiscoveryErrorFallback        = "discovery_error_fallback"
 	RoutingReasonDiscoveryError                = "discovery_error"
+	RoutingReasonDiscoveryServiceUnavailable   = "discovery_service_unavailable"
 )
 
 // Fallback behavior constants for routing strategies
