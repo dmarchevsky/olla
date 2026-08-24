@@ -3,6 +3,15 @@ version: '3.8'
 services:
   olla:
     image: ghcr.io/thushan/olla:latest
+    # Optional local/source build: `docker compose build` or `up --build`
+    # builds this instead of pulling the published image (e.g. for tools like
+    # Dockhand that build straight from a git checkout). Plain `docker compose
+    # up` still uses the pulled `image:` above if already present, so this is
+    # additive and doesn't change default behaviour. See Dockerfile.source's
+    # header comment for why this isn't the same Dockerfile as the release image.
+    build:
+      context: .
+      dockerfile: Dockerfile.source
     container_name: olla
     ports:
       - "40114:40114"

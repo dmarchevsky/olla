@@ -1,0 +1,80 @@
+# Self-building Dockerfile for tools that only run `docker build .` against
+# this repo with no custom build command (e.g. Dockhand) - unlike the root
+# Dockerfile, which expects a prebuilt `olla` binary and a pre-generated
+# build/docker-config.yaml supplied by `make docker-build-local` or
+# goreleaser's cross-compiled release pipeline. Keep this file in sync with
+# the runtime stage of the root Dockerfile; do not merge the two, since the
+# root Dockerfile is also goreleaser's release Dockerfile and relies on
+# receiving a prebuilt per-arch binary rather than compiling one itself.
+#
+# Build: docker build -f Dockerfile.source -t olla:source .
+
+# ---- frontend: build the dashboard SPA -------------------------------------
+FROM oven/bun:1.3.5 AS frontend
+WORKDIR /src
+# Vite's outDir (web/dashboard/vite.config.js) writes straight into
+# internal/app/handlers/dashboard/dist, so the frontend build needs that path
+# to exist alongside web/dashboard - copy the whole repo rather than just web/.
+COPY . .
+RUN cd web/dashboard && bun install --frozen-lockfile && bun run build
+
+# ---- builder: compile the Go binary ----------------------------------------
+# Debian-based (not alpine): scripts/generate-container-config.sh is a bash
+# script using GNU sed's multi-line `c\` substitution, which busybox sed
+# (alpine) does not support.
+FROM golang:1.24 AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# Overlay the SPA build from the frontend stage onto the go:embed source.
+COPY --from=frontend /src/internal/app/handlers/dashboard/dist ./internal/app/handlers/dashboard/dist
+
+ARG TARGETARCH=amd64
+ARG TARGETOS=linux
+
+# Same ldflags var substitution as makefile:23-29 (internal/version fields).
+# git metadata is available here since the full .git directory is in the
+# build context (not excluded by Dockerfile.source.dockerignore).
+RUN VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0-dev") && \
+    COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none") && \
+    DATE=$(date +%Y-%m-%dT%H:%M:%S%z) && \
+    RUNTIME="Go $(go version | awk '{print $3}')" && \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+      -ldflags "-X 'github.com/thushan/olla/internal/version.Version=${VERSION}' \
+                -X 'github.com/thushan/olla/internal/version.Runtime=${RUNTIME}' \
+                -X 'github.com/thushan/olla/internal/version.Commit=${COMMIT}' \
+                -X 'github.com/thushan/olla/internal/version.Date=${DATE}' \
+                -X 'github.com/thushan/olla/internal/version.Tool=docker-source' \
+                -X 'github.com/thushan/olla/internal/version.User=docker'" \
+      -o /out/olla .
+
+# Same steps as makefile:236-239 (docker-build-local target).
+RUN bash ./scripts/generate-container-config.sh && \
+    mkdir -p build && \
+    cp config/docker.yaml build/docker-config.yaml
+
+# ---- runtime: mirrors the root Dockerfile's final stage --------------------
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata wget && \
+    adduser -D -s /bin/sh olla && \
+    mkdir -p /app/logs && \
+    chown -R olla:olla /app
+
+WORKDIR /app
+
+COPY --from=builder /out/olla /usr/local/bin/olla
+COPY --from=builder /src/build/docker-config.yaml config/config.yaml
+COPY --from=builder /src/config/models.yaml config/models.yaml
+COPY --from=builder /src/config/profiles/ config/profiles/
+
+RUN chown -R olla:olla /app
+
+USER olla
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:40114/internal/health || exit 1
+
+EXPOSE 40114
+ENTRYPOINT ["olla"]
