@@ -205,6 +205,7 @@ logging:
   level: "info"  # debug, info, warn, error
   format: "json"  # json, text
   output: "stdout"  # stdout, file
+  # ring_buffer_size: 5000  # entries retained in-memory for the dashboard's Logs viewer
 
 engineering:
   show_nerdstats: false

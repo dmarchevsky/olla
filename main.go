@@ -163,11 +163,12 @@ func main() {
 	runtimePrettyLogs := runtimeFormat == LogFormatText
 	runtimeFileOutput := runtimeOutput == LogOutputFile
 
-	if runtimeLevel != lcfg.Level || runtimePrettyLogs != lcfg.PrettyLogs || runtimeFileOutput != lcfg.FileOutput {
+	if runtimeLevel != lcfg.Level || runtimePrettyLogs != lcfg.PrettyLogs || runtimeFileOutput != lcfg.FileOutput || cfg.Logging.RingBufferSize != lcfg.RingBufferSize {
 		runtimeCfg := *lcfg
 		runtimeCfg.Level = runtimeLevel
 		runtimeCfg.PrettyLogs = runtimePrettyLogs
 		runtimeCfg.FileOutput = runtimeFileOutput
+		runtimeCfg.RingBufferSize = cfg.Logging.RingBufferSize
 
 		newLogInstance, newStyledLogger, newCleanup, rebuildErr := logger.NewWithTheme(&runtimeCfg)
 		if rebuildErr != nil {
@@ -336,5 +337,9 @@ func buildLoggerConfig() *logger.Config {
 		MaxBackups: env.GetEnvIntOrDefault("OLLA_LOG_MAX_BACKUPS", DefaultLogMaxBackups),
 		MaxAge:     env.GetEnvIntOrDefault("OLLA_LOG_MAX_AGE_DAYS", DefaultLogMaxAgeDays),
 		Theme:      env.GetEnvOrDefault("OLLA_THEME", DefaultTheme),
+		// Matches the config-loaded default (config.DefaultConfig's
+		// Logging.RingBufferSize) so a default-vs-default startup doesn't
+		// trigger a needless logger rebuild below.
+		RingBufferSize: logger.DefaultRingBufferSize,
 	}
 }

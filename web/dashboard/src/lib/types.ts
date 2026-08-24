@@ -158,3 +158,24 @@ export interface ModelStatusResponse {
   total_families: number;
   total_endpoints: number;
 }
+
+// --- handler_logs.go ---------------------------------------------------
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export interface LogEntry {
+  time: string;
+  level: LogLevel | string;
+  message: string;
+  endpoint?: string;
+  attrs?: Record<string, string>;
+  seq: number;
+}
+
+export interface LogsResponse {
+  entries: LogEntry[];
+  next_since: number;
+  head_seq: number;
+  capacity: number;
+  truncated: boolean;
+}

@@ -142,9 +142,10 @@ func DefaultConfig() *Config {
 			},
 		},
 		Logging: LoggingConfig{
-			Level:  "info",
-			Format: "json",
-			Output: "stdout",
+			Level:          "info",
+			Format:         "json",
+			Output:         "stdout",
+			RingBufferSize: 5000,
 		},
 		Engineering: EngineeringConfig{
 			ShowNerdStats: false,

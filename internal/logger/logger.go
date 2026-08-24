@@ -22,8 +22,11 @@ type Config struct {
 	MaxSize    int // megabytes
 	MaxBackups int
 	MaxAge     int // days
-	FileOutput bool
-	PrettyLogs bool
+	// RingBufferSize bounds the in-memory log buffer backing the dashboard's
+	// log browser (/internal/logs). Zero falls back to DefaultRingBufferSize.
+	RingBufferSize int
+	FileOutput     bool
+	PrettyLogs     bool
 }
 
 const (
@@ -71,6 +74,15 @@ func New(cfg *Config) (*slog.Logger, func(), error) {
 		cleanupFuncs = append(cleanupFuncs, cleanup)
 		handlers = append(handlers, fileHandler)
 	}
+
+	// The ring buffer handler always participates, independent of PrettyLogs/
+	// FileOutput, so the dashboard's log browser works regardless of which
+	// console/file handlers are active. It captures at the same level as
+	// everything else (not always-debug) so the browser shows exactly what the
+	// operator already sees elsewhere, rather than a hidden firehose.
+	ringBuffer := NewRingBuffer(cfg.RingBufferSize)
+	SetGlobalRingBuffer(ringBuffer)
+	handlers = append(handlers, newRingBufferHandler(ringBuffer, level))
 
 	var logger *slog.Logger
 	if len(handlers) == 1 {

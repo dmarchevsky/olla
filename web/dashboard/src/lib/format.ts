@@ -148,6 +148,24 @@ export function fmtUptime(iso: string | null | undefined, nowMs: number = Date.n
   return `${days}d ${remHours}h`;
 }
 
+/**
+ * Absolute clock time in the viewer's local timezone, e.g. "14:32:07".
+ * Deliberately uses toLocaleTimeString with no explicit timeZone: the browser
+ * resolves that to the viewer's own timezone, which is exactly what the Logs
+ * panel needs and what every other formatter here (relative "Xs ago" strings)
+ * doesn't provide.
+ */
+export function fmtLocalTime(iso: string | null | undefined): string {
+  const t = parseIso(iso);
+  if (t === null) return '—';
+  return new Date(t).toLocaleTimeString(undefined, {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 // Date.parse is too lenient (no format validation). Reject anything that
 // doesn't carry a timezone or isn't ISO-8601-ish so a malformed payload
 // doesn't silently render "53 years ago".

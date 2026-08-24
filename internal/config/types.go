@@ -319,6 +319,9 @@ type LoggingConfig struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 	Output string `yaml:"output"`
+	// RingBufferSize bounds the in-memory log buffer backing the dashboard's
+	// log browser. Zero uses logger.DefaultRingBufferSize.
+	RingBufferSize int `yaml:"ring_buffer_size"`
 }
 
 // EngineeringConfig holds development/debugging configuration
