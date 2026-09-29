@@ -56,16 +56,23 @@ describe('LogsPanel component filter', () => {
     expect(source?.textContent?.trim()).toBe('health');
   });
 
-  it('applies component= to the query when a pill is toggled', async () => {
+  it('applies component= to the query when an event type is selected', async () => {
     const fetchMock = mockFetch();
     component = mount(LogsPanel, { target: document.body });
     flushSync();
     await vi.waitFor(() => expect(logs.entries.length).toBe(1));
 
-    const pills = [...document.querySelectorAll<HTMLButtonElement>('.pill-toggle')];
-    const healthPill = pills.find((b) => b.textContent?.includes('health'));
-    expect(healthPill).toBeTruthy();
-    healthPill!.click();
+    const dropdowns = [...document.querySelectorAll<HTMLButtonElement>('.ms-button')];
+    const typeButton = dropdowns.find((b) => b.textContent?.includes('Event type'));
+    expect(typeButton).toBeTruthy();
+    typeButton!.click();
+    flushSync();
+
+    const option = [...document.querySelectorAll<HTMLLabelElement>('.ms-option')].find((l) =>
+      l.textContent?.includes('health')
+    );
+    expect(option).toBeTruthy();
+    option!.querySelector('input')!.click();
     flushSync();
 
     await vi.waitFor(() =>

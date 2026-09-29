@@ -3,6 +3,7 @@
   import { endpoints } from '../lib/stores/endpoints.svelte';
   import StatusBanner from '../components/StatusBanner.svelte';
   import SortableTable from '../components/SortableTable.svelte';
+  import MultiSelect from '../components/MultiSelect.svelte';
   import type { Column } from '../components/SortableTable.svelte';
   import { fmtLocalTime } from '../lib/format';
   import type { LogEntry, LogLevel } from '../lib/types';
@@ -13,7 +14,9 @@
   type LogRow = Omit<LogEntry, never>;
 
   const LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+  const LEVEL_OPTIONS = LEVELS.map((l) => ({ value: l, label: l }));
   const COMPONENTS: LogComponent[] = ['request', 'health', 'discovery', 'registry', 'config', 'system'];
+  const COMPONENT_OPTIONS = COMPONENTS.map((c) => ({ value: c, label: c }));
   const LEVEL_GLYPH: Record<LogLevel, string> = { debug: '○', info: '●', warn: '◐', error: '○' };
   const LEVEL_COLOUR: Record<LogLevel, string> = { debug: 'neutral', info: 'green', warn: 'amber', error: 'red' };
   const PRESETS: { value: TimePreset; label: string }[] = [
@@ -55,18 +58,12 @@
     } satisfies LogFilters);
   }
 
-  function toggleLevel(level: LogLevel): void {
-    const next = new Set(selectedLevels);
-    if (next.has(level)) next.delete(level);
-    else next.add(level);
+  function onLevelsChange(next: Set<LogLevel>): void {
     selectedLevels = next;
     applyFilters();
   }
 
-  function toggleComponent(component: LogComponent): void {
-    const next = new Set(selectedComponents);
-    if (next.has(component)) next.delete(component);
-    else next.add(component);
+  function onComponentsChange(next: Set<LogComponent>): void {
     selectedComponents = next;
     applyFilters();
   }
@@ -103,6 +100,19 @@
   let logScroll: HTMLElement | undefined = $state();
   let stickToBottom = $state(true);
 
+  // Size the scroll container to exactly the remaining viewport height so
+  // the page itself never scrolls on this tab. A fixed 60vh cap left the
+  // page scrollbar and the container scrollbar competing whenever the
+  // banner or filter bar changed height.
+  let scrollMaxHeight = $state(320);
+
+  function measureScroll(): void {
+    if (!logScroll) return;
+    const top = logScroll.getBoundingClientRect().top;
+    const h = Math.max(240, window.innerHeight - top - 12);
+    if (h !== scrollMaxHeight) scrollMaxHeight = h;
+  }
+
   function onScroll(): void {
     if (!logScroll) return;
     const gap = logScroll.scrollHeight - logScroll.scrollTop - logScroll.clientHeight;
@@ -112,9 +122,21 @@
   $effect(() => {
     // Re-run whenever entries change (Svelte tracks logs.entries via this read).
     const count = logs.entries.length;
+    const status = logs.status;
+    const truncated = logs.truncated;
     if (count > 0 && logs.following && stickToBottom && logScroll) {
       logScroll.scrollTop = logScroll.scrollHeight;
     }
+    // Re-measure after any layout shift: banner appearing/clearing, the
+    // truncated note, or the filter bar wrapping on a narrow viewport.
+    void status;
+    void truncated;
+    measureScroll();
+  });
+
+  $effect(() => {
+    window.addEventListener('resize', measureScroll);
+    return () => window.removeEventListener('resize', measureScroll);
   });
 </script>
 
@@ -136,33 +158,9 @@
       {/each}
     </select>
 
-    <div class="pill-group" role="group" aria-label="Severity filter">
-      {#each LEVELS as level (level)}
-        <button
-          type="button"
-          class="pill pill-toggle"
-          class:active={selectedLevels.has(level)}
-          aria-pressed={selectedLevels.has(level)}
-          onclick={() => toggleLevel(level)}
-        >
-          <span class="glyph g-{LEVEL_COLOUR[level]}" aria-hidden="true">{LEVEL_GLYPH[level]}</span>{level}
-        </button>
-      {/each}
-    </div>
+    <MultiSelect label="Severity" options={LEVEL_OPTIONS} selected={selectedLevels} onChange={onLevelsChange} />
 
-    <div class="pill-group" role="group" aria-label="Event type filter">
-      {#each COMPONENTS as component (component)}
-        <button
-          type="button"
-          class="pill pill-toggle"
-          class:active={selectedComponents.has(component)}
-          aria-pressed={selectedComponents.has(component)}
-          onclick={() => toggleComponent(component)}
-        >
-          {component}
-        </button>
-      {/each}
-    </div>
+    <MultiSelect label="Event type" options={COMPONENT_OPTIONS} selected={selectedComponents} onChange={onComponentsChange} />
 
     <select class="log-select" bind:value={endpointFilter} onchange={onEndpointChange} aria-label="Endpoint filter">
       <option value="">All endpoints</option>
@@ -187,7 +185,7 @@
         {#each Array(6) as _, i (i)}<div class="skeleton row-skel" style="margin:6px 10px"></div>{/each}
       </div>
     {:else if logs.entries.length}
-      <div class="log-scroll" bind:this={logScroll} onscroll={onScroll}>
+      <div class="log-scroll" bind:this={logScroll} onscroll={onScroll} style="max-height: {scrollMaxHeight}px">
         <SortableTable
           {columns}
           rows={logs.entries as LogRow[]}
@@ -247,34 +245,6 @@
     outline-offset: 1px;
   }
 
-  .pill-group {
-    display: flex;
-    gap: 4px;
-  }
-  /* Selected-state variant of the shared .pill: same shape/border as the
-     endpoint chips elsewhere, filled with the level's own status colour once
-     active rather than introducing a new selection visual language. */
-  .pill-toggle {
-    cursor: pointer;
-    background: transparent;
-    font: inherit;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .pill-toggle:hover {
-    border-color: var(--accent);
-  }
-  .pill-toggle:focus-visible {
-    outline: var(--focus-ring);
-    outline-offset: 1px;
-  }
-  .pill-toggle.active {
-    color: var(--text);
-    background: var(--bg-inset);
-    border-color: currentColor;
-  }
-
   .theme-toggle.active {
     border-color: var(--accent);
     color: var(--accent);
@@ -286,12 +256,18 @@
     margin: 0 0 var(--space-2);
   }
 
-  /* Vertical cap + scroll around SortableTable, whose own .table-scroll only
-     scrolls horizontally - a live "follow" tail needs a bounded viewport
-     rather than growing the whole page. */
+  /* Vertical scroll around SortableTable (whose own .table-scroll only
+     scrolls horizontally); max-height is set inline from JS to exactly the
+     remaining viewport height, so the page itself never gains a second
+     scrollbar. */
   .log-scroll {
-    max-height: 60vh;
     overflow-y: auto;
+  }
+  /* The global table min-width (860px) forces a horizontal scrollbar on
+     narrow viewports; log columns fit without it since the message cell
+     wraps. */
+  #panel-logs :global(table) {
+    min-width: 0;
   }
   .log-time {
     white-space: nowrap;
