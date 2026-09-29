@@ -108,8 +108,14 @@
 
   function measureScroll(): void {
     if (!logScroll) return;
-    const top = logScroll.getBoundingClientRect().top;
-    const h = Math.max(240, window.innerHeight - top - 12);
+    // Document-relative top so the measurement holds even if the page is
+    // scrolled at measure time; the bottom gap is main's real padding, not
+    // a guess - a constant under-count left a few px of page overflow and
+    // therefore a permanent page scrollbar.
+    const mainEl = logScroll.closest('main');
+    const padBottom = mainEl ? parseFloat(getComputedStyle(mainEl).paddingBottom) || 0 : 0;
+    const top = logScroll.getBoundingClientRect().top + window.scrollY;
+    const h = Math.max(240, window.innerHeight - top - padBottom);
     if (h !== scrollMaxHeight) scrollMaxHeight = h;
   }
 
