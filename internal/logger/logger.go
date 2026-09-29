@@ -46,6 +46,13 @@ const (
 // Matches all ANSI escape sequences: \x1b[...m, \x1b[...K, \x1b[...A, etc.
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
+// stripANSI removes ANSI escape sequences from a string, shared by the
+// file handler and the ring buffer handler so neither surfaces escape
+// garbage (pretty mode embeds theme colours in the message itself).
+func stripANSI(s string) string {
+	return ansiRegex.ReplaceAllString(s, "")
+}
+
 func New(cfg *Config) (*slog.Logger, func(), error) {
 	level := parseLevel(cfg.Level)
 	appTheme := theme.GetTheme(cfg.Theme)
@@ -271,7 +278,7 @@ func (h *ansiStripHandler) Enabled(ctx context.Context, level slog.Level) bool {
 func (h *ansiStripHandler) Handle(ctx context.Context, record slog.Record) error {
 	// we strip ANSI codes from the message for clean JSON output
 	// this cleans most of the pterm styles and other ANSI codes
-	record.Message = ansiRegex.ReplaceAllString(record.Message, "")
+	record.Message = stripANSI(record.Message)
 	return h.handler.Handle(ctx, record)
 }
 

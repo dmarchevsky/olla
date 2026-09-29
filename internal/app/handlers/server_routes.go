@@ -166,7 +166,7 @@ func (a *Application) registerTranslatorRoutes() {
 					"models_path", modelsPath,
 					"token_count_path", tokenCountPath)
 
-				a.logger.InfoWithEndpoint(" ", name, "path", path)
+				a.logger.Info("Registered translator token-count route", "translator", name, "path", path)
 			} else {
 				a.logger.Debug("Registered translator routes",
 					"translator", name,

@@ -55,12 +55,12 @@ func (sl *PrettyStyledLogger) InfoWithCount(msg string, count int, args ...any) 
 
 func (sl *PrettyStyledLogger) InfoWithEndpoint(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, sl.Theme.Endpoint.Sprint(endpoint))
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PrettyStyledLogger) InfoWithHealthCheck(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, sl.Theme.HealthCheck.Sprint(endpoint))
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PrettyStyledLogger) InfoWithNumbers(msg string, numbers ...int64) {
@@ -75,17 +75,17 @@ func (sl *PrettyStyledLogger) InfoWithNumbers(msg string, numbers ...int64) {
 
 func (sl *PrettyStyledLogger) WarnWithEndpoint(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, sl.Theme.Endpoint.Sprint(endpoint))
-	sl.logger.Warn(styledMsg, args...)
+	sl.logger.Warn(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PrettyStyledLogger) ErrorWithEndpoint(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, sl.Theme.Endpoint.Sprint(endpoint))
-	sl.logger.Error(styledMsg, args...)
+	sl.logger.Error(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PrettyStyledLogger) InfoHealthy(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, sl.Theme.HealthHealthy.Sprint(endpoint))
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 func (sl *PrettyStyledLogger) InfoHealthStatus(msg string, name string, status domain.EndpointStatus, args ...any) {
 	var statusStyle *pterm.Style
@@ -117,7 +117,7 @@ func (sl *PrettyStyledLogger) InfoHealthStatus(msg string, name string, status d
 		msg,
 		sl.Theme.Endpoint.Sprint(name), statusStyle.Sprint(statusText))
 
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, name)...)
 }
 
 func (sl *PrettyStyledLogger) GetUnderlying() *slog.Logger {
@@ -170,14 +170,15 @@ func (sl *PrettyStyledLogger) ErrorWithContext(msg string, endpoint string, ctx 
 func (sl *PrettyStyledLogger) logWithContext(level string, msg string, endpoint string, ctx LogContext) {
 	// CLI: clean messaging
 	styledMsg := fmt.Sprintf("%s %s", msg, sl.Theme.Endpoint.Sprint(endpoint))
+	userArgs := withEndpointAttr(ctx.UserArgs, endpoint)
 
 	switch level {
 	case LogLevelInfo:
-		sl.logger.Info(styledMsg, ctx.UserArgs...)
+		sl.logger.Info(styledMsg, userArgs...)
 	case LogLevelWarn:
-		sl.logger.Warn(styledMsg, ctx.UserArgs...)
+		sl.logger.Warn(styledMsg, userArgs...)
 	case LogLevelError:
-		sl.logger.Error(styledMsg, ctx.UserArgs...)
+		sl.logger.Error(styledMsg, userArgs...)
 	}
 
 	// log file: detailed hopefully

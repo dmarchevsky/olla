@@ -203,7 +203,7 @@ func (s *ModelDiscoveryService) DiscoverEndpoint(ctx context.Context, endpoint *
 	}
 
 	s.resetFailureCount(endpoint.URLString)
-	s.logger.InfoWithEndpoint(" ", endpoint.Name, "models", len(filteredModels))
+	s.logger.InfoWithEndpoint("Discovered models", endpoint.Name, "models", len(filteredModels))
 	return nil
 }
 

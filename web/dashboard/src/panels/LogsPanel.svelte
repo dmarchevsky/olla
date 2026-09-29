@@ -174,7 +174,14 @@
               {e.level}
             </td>
             <td>{e.endpoint || '—'}</td>
-            <td class="log-message">{e.message}</td>
+            <td class="log-message">
+              {e.message}
+              {#if e.attrs}
+                {#each Object.entries(e.attrs) as [key, value] (key)}
+                  <span class="log-attr">{key}={value}</span>
+                {/each}
+              {/if}
+            </td>
           {/snippet}
         </SortableTable>
       </div>
@@ -262,5 +269,19 @@
   }
   .log-message {
     word-break: break-word;
+  }
+  /* Structured attrs (models=4, duration_ms=120, ...) rendered inline so the
+     detail the API already returns is visible without an expand affordance. */
+  .log-attr {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 5px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    white-space: nowrap;
   }
 </style>

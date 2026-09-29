@@ -51,12 +51,12 @@ func (sl *PlainStyledLogger) InfoWithCount(msg string, count int, args ...any) {
 
 func (sl *PlainStyledLogger) InfoWithEndpoint(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, endpoint)
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PlainStyledLogger) InfoWithHealthCheck(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, endpoint)
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PlainStyledLogger) InfoWithNumbers(msg string, numbers ...int64) {
@@ -71,17 +71,17 @@ func (sl *PlainStyledLogger) InfoWithNumbers(msg string, numbers ...int64) {
 
 func (sl *PlainStyledLogger) WarnWithEndpoint(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, endpoint)
-	sl.logger.Warn(styledMsg, args...)
+	sl.logger.Warn(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PlainStyledLogger) ErrorWithEndpoint(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, endpoint)
-	sl.logger.Error(styledMsg, args...)
+	sl.logger.Error(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PlainStyledLogger) InfoHealthy(msg string, endpoint string, args ...any) {
 	styledMsg := fmt.Sprintf("%s %s", msg, endpoint)
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, endpoint)...)
 }
 
 func (sl *PlainStyledLogger) InfoHealthStatus(msg string, name string, status domain.EndpointStatus, args ...any) {
@@ -106,7 +106,7 @@ func (sl *PlainStyledLogger) InfoHealthStatus(msg string, name string, status do
 		statusText = "Rate Limited"
 	}
 	styledMsg := fmt.Sprintf("%s %s is %s", msg, name, statusText)
-	sl.logger.Info(styledMsg, args...)
+	sl.logger.Info(styledMsg, withEndpointAttr(args, name)...)
 }
 
 func (sl *PlainStyledLogger) GetUnderlying() *slog.Logger {
@@ -155,14 +155,15 @@ func (sl *PlainStyledLogger) ErrorWithContext(msg string, endpoint string, ctx L
 func (sl *PlainStyledLogger) logWithContext(level string, msg string, endpoint string, ctx LogContext) {
 	// CLI: clean messaging
 	styledMsg := fmt.Sprintf("%s %s", msg, endpoint)
+	userArgs := withEndpointAttr(ctx.UserArgs, endpoint)
 
 	switch level {
 	case LogLevelInfo:
-		sl.logger.Info(styledMsg, ctx.UserArgs...)
+		sl.logger.Info(styledMsg, userArgs...)
 	case LogLevelWarn:
-		sl.logger.Warn(styledMsg, ctx.UserArgs...)
+		sl.logger.Warn(styledMsg, userArgs...)
 	case LogLevelError:
-		sl.logger.Error(styledMsg, ctx.UserArgs...)
+		sl.logger.Error(styledMsg, userArgs...)
 	}
 
 	// log file: detailed hopefully

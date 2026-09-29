@@ -23,30 +23,45 @@ func (h *ringBufferHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level
 }
 
-func (h *ringBufferHandler) Handle(_ context.Context, r slog.Record) error {
+func (h *ringBufferHandler) Handle(ctx context.Context, r slog.Record) error {
+	// Detailed-context records (LogContext.DetailedArgs) are the file-only
+	// twins of a user-facing record already captured; keeping both would
+	// duplicate every row in the browser, so mirror terminalFilterHandler
+	// and drop them here too.
+	if isDetailedLog(ctx) {
+		return nil
+	}
+
 	attrs := make(map[string]string, len(h.attrs)+r.NumAttrs())
 	endpoint := ""
+	endpointName := ""
+
+	collect := func(a slog.Attr) bool {
+		switch a.Key {
+		case "endpoint":
+			endpoint = a.Value.String()
+		case "endpoint_name":
+			// alias used by logWithContext's detailed record
+			endpointName = a.Value.String()
+		default:
+			attrs[a.Key] = stripANSI(a.Value.String())
+		}
+		return true
+	}
 
 	for _, a := range h.attrs {
-		if a.Key == "endpoint" {
-			endpoint = a.Value.String()
-			continue
-		}
-		attrs[a.Key] = a.Value.String()
+		collect(a)
 	}
-	r.Attrs(func(a slog.Attr) bool {
-		if a.Key == "endpoint" {
-			endpoint = a.Value.String()
-			return true
-		}
-		attrs[a.Key] = a.Value.String()
-		return true
-	})
+	r.Attrs(collect)
+
+	if endpoint == "" {
+		endpoint = endpointName
+	}
 
 	h.rb.Append(Entry{
 		Time:     r.Time,
 		Level:    levelString(r.Level),
-		Message:  r.Message,
+		Message:  stripANSI(r.Message),
 		Endpoint: endpoint,
 		Attrs:    attrs,
 	})

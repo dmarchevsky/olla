@@ -53,6 +53,17 @@ func NewWithTheme(cfg *Config) (*slog.Logger, StyledLogger, func(), error) {
 	return logger, styledLogger, cleanup, nil
 }
 
+// withEndpointAttr appends the structured "endpoint" attr to a caller's
+// variadic args so the dashboard log browser (/internal/logs) can populate
+// its Endpoint column and filter. A fresh slice is built rather than
+// appending in place, since appending to the caller's backing array would
+// corrupt the args of any other handler sharing the same slice.
+func withEndpointAttr(args []any, endpoint string) []any {
+	out := make([]any, 0, len(args)+2)
+	out = append(out, args...)
+	return append(out, "endpoint", endpoint)
+}
+
 func toInterfaceSlice(strs []string) []interface{} {
 	result := make([]interface{}, len(strs))
 	for i, s := range strs {

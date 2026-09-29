@@ -275,7 +275,7 @@ func (c *HTTPHealthChecker) checkEndpoint(ctx context.Context, endpoint *domain.
 	// Check if endpoint still exists before updating
 	if !c.repository.Exists(ctx, endpoint.URL) {
 		c.logger.Debug("Endpoint removed from configuration, stopping health checks",
-			"endpoint", endpoint.GetURLString())
+			"endpoint", endpoint.Name)
 		return
 	}
 
