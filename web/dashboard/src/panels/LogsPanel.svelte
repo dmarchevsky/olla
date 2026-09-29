@@ -109,13 +109,18 @@
   function measureScroll(): void {
     if (!logScroll) return;
     // Document-relative top so the measurement holds even if the page is
-    // scrolled at measure time; the bottom gap is main's real padding, not
-    // a guess - a constant under-count left a few px of page overflow and
-    // therefore a permanent page scrollbar.
+    // scrolled at measure time. The bottom gap is main's real padding PLUS the
+    // footer that sits below main in the flow - the footer is a sibling of
+    // main, so leaving its height out pushed it below the fold and gave the
+    // page a permanent scrollbar of exactly the footer's height, at any window
+    // size. offsetHeight is independent of the table height, so it can't feed
+    // back into this measurement.
     const mainEl = logScroll.closest('main');
     const padBottom = mainEl ? parseFloat(getComputedStyle(mainEl).paddingBottom) || 0 : 0;
+    const footerEl = document.querySelector('footer');
+    const footerH = footerEl ? footerEl.offsetHeight : 0;
     const top = logScroll.getBoundingClientRect().top + window.scrollY;
-    const h = Math.max(240, window.innerHeight - top - padBottom);
+    const h = Math.max(240, window.innerHeight - top - padBottom - footerH);
     if (h !== scrollMaxHeight) scrollMaxHeight = h;
   }
 
