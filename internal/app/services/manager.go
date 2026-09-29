@@ -42,7 +42,9 @@ func NewServiceManager(logger logger.StyledLogger) *ServiceManager {
 	return &ServiceManager{
 		services: make(map[string]ManagedService),
 		registry: NewServiceRegistry(),
-		logger:   logger,
+		// Service lifecycle events belong to the config bucket in the
+		// dashboard log browser.
+		logger:   logger.With("component", "config"),
 	}
 }
 

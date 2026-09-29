@@ -14,10 +14,12 @@ const FOLLOW_INTERVAL_MS = 2000;
 const CLIENT_ENTRY_CAP = 5000;
 
 export type TimePreset = '15m' | '1h' | '6h' | '24h' | 'all';
+export type LogComponent = 'request' | 'health' | 'discovery' | 'registry' | 'config' | 'system';
 
 export interface LogFilters {
   preset: TimePreset;
   levels: Set<LogLevel>;
+  components: Set<LogComponent>;
   endpoint: string; // '' = all endpoints
 }
 
@@ -36,6 +38,7 @@ function buildUrl(filters: LogFilters, since: number): string {
     params.set('from', from.toISOString());
   }
   if (filters.levels.size > 0) params.set('level', [...filters.levels].join(','));
+  if (filters.components.size > 0) params.set('component', [...filters.components].join(','));
   if (filters.endpoint) params.set('endpoint', filters.endpoint);
   return `/internal/logs?${params.toString()}`;
 }
@@ -49,7 +52,7 @@ class LogsStore {
   #lastSuccessAt = 0;
   #following = $state(false);
   #truncated = $state(false);
-  #filters: LogFilters = $state({ preset: '1h', levels: new Set(), endpoint: '' });
+  #filters: LogFilters = $state({ preset: '1h', levels: new Set(), components: new Set(), endpoint: '' });
 
   get name(): string {
     return 'logs';

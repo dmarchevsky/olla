@@ -168,6 +168,7 @@ export interface LogEntry {
   level: LogLevel | string;
   message: string;
   endpoint?: string;
+  component?: string;
   attrs?: Record<string, string>;
   seq: number;
 }

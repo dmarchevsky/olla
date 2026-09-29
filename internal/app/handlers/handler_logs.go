@@ -12,12 +12,13 @@ import (
 )
 
 type LogEntryResponse struct {
-	Time     time.Time         `json:"time"`
-	Level    string            `json:"level"`
-	Message  string            `json:"message"`
-	Endpoint string            `json:"endpoint,omitempty"`
-	Attrs    map[string]string `json:"attrs,omitempty"`
-	Seq      uint64            `json:"seq"`
+	Time      time.Time         `json:"time"`
+	Level     string            `json:"level"`
+	Message   string            `json:"message"`
+	Endpoint  string            `json:"endpoint,omitempty"`
+	Component string            `json:"component,omitempty"`
+	Attrs     map[string]string `json:"attrs,omitempty"`
+	Seq       uint64            `json:"seq"`
 }
 
 type LogsResponse struct {
@@ -57,12 +58,13 @@ func (a *Application) logsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, e := range entries {
 		resp.Entries[i] = LogEntryResponse{
-			Seq:      e.Seq,
-			Time:     e.Time,
-			Level:    e.Level,
-			Message:  e.Message,
-			Endpoint: e.Endpoint,
-			Attrs:    e.Attrs,
+			Seq:       e.Seq,
+			Time:      e.Time,
+			Level:     e.Level,
+			Message:   e.Message,
+			Endpoint:  e.Endpoint,
+			Component: e.Component,
+			Attrs:     e.Attrs,
 		}
 	}
 	if len(entries) > 0 {
@@ -111,12 +113,33 @@ func parseLogQuery(r *http.Request) logger.QueryParams {
 
 	limit, _ := strconv.Atoi(q.Get("limit"))
 
+	// component= is a comma-separated event-type filter (request, health,
+	// discovery, registry, config, system). Values are not validated against
+	// a fixed list - an unknown value simply matches nothing, same as the
+	// endpoint filter. "system" is the display bucket for untagged entries,
+	// which carry an empty component, so map it to "" to match them.
+	var components map[string]struct{}
+	if v := q.Get("component"); v != "" {
+		components = make(map[string]struct{})
+		for _, c := range strings.Split(v, ",") {
+			c = strings.ToLower(strings.TrimSpace(c))
+			if c == "" {
+				continue
+			}
+			if c == "system" {
+				c = ""
+			}
+			components[c] = struct{}{}
+		}
+	}
+
 	return logger.QueryParams{
-		Since:    since,
-		From:     from,
-		To:       to,
-		Levels:   levels,
-		Endpoint: q.Get("endpoint"),
-		Limit:    limit,
+		Since:      since,
+		From:       from,
+		To:         to,
+		Levels:     levels,
+		Components: components,
+		Endpoint:   q.Get("endpoint"),
+		Limit:      limit,
 	}
 }

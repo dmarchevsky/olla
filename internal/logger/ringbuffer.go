@@ -23,23 +23,25 @@ const (
 
 // Entry is one captured, structured log record.
 type Entry struct {
-	Time     time.Time
-	Level    string
-	Message  string
-	Endpoint string
-	Attrs    map[string]string
-	Seq      uint64
+	Time      time.Time
+	Level     string
+	Message   string
+	Endpoint  string
+	Component string
+	Attrs     map[string]string
+	Seq       uint64
 }
 
 // QueryParams filters a RingBuffer.Query call. Zero values mean "no filter"
 // for that field, except Since where 0 means "from the oldest retained entry".
 type QueryParams struct {
-	From     time.Time
-	To       time.Time
-	Levels   map[string]struct{}
-	Endpoint string
-	Since    uint64
-	Limit    int
+	From       time.Time
+	To         time.Time
+	Levels     map[string]struct{}
+	Components map[string]struct{}
+	Endpoint   string
+	Since      uint64
+	Limit      int
 }
 
 // RingBuffer is a fixed-capacity, thread-safe circular buffer of log Entry
@@ -161,6 +163,11 @@ func (rb *RingBuffer) Query(q QueryParams) (entries []Entry, headSeq, oldestSeq 
 		}
 		if len(q.Levels) > 0 {
 			if _, ok := q.Levels[e.Level]; !ok {
+				continue
+			}
+		}
+		if len(q.Components) > 0 {
+			if _, ok := q.Components[e.Component]; !ok {
 				continue
 			}
 		}

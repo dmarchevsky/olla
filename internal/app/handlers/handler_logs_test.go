@@ -75,6 +75,32 @@ func TestLogsHandlerSerializesAttrs(t *testing.T) {
 	}
 }
 
+func TestLogsHandlerComponentFilter(t *testing.T) {
+	rb := withTestRingBuffer(t, 64)
+	rb.Append(logger.Entry{Time: time.Now(), Level: "info", Message: "request completed", Component: "request"})
+	rb.Append(logger.Entry{Time: time.Now(), Level: "info", Message: "endpoint recovered", Component: "health"})
+	rb.Append(logger.Entry{Time: time.Now(), Level: "info", Message: "untagged startup line"})
+
+	app := &Application{}
+
+	req := httptest.NewRequest(http.MethodGet, "/internal/logs?component=health", nil)
+	rec := httptest.NewRecorder()
+	app.logsHandler(rec, req)
+	resp := decodeLogs(t, rec)
+	if len(resp.Entries) != 1 || resp.Entries[0].Component != "health" {
+		t.Fatalf("component=health should return only the health entry, got %+v", resp.Entries)
+	}
+
+	// "system" is the display bucket for untagged entries.
+	req = httptest.NewRequest(http.MethodGet, "/internal/logs?component=system", nil)
+	rec = httptest.NewRecorder()
+	app.logsHandler(rec, req)
+	resp = decodeLogs(t, rec)
+	if len(resp.Entries) != 1 || resp.Entries[0].Message != "untagged startup line" {
+		t.Fatalf("component=system should return only untagged entries, got %+v", resp.Entries)
+	}
+}
+
 func TestLogsHandlerSinceCursor(t *testing.T) {
 	rb := withTestRingBuffer(t, 64)
 	rb.Append(logger.Entry{Time: time.Now(), Level: "info", Message: "first"})

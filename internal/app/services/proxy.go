@@ -138,8 +138,10 @@ func (s *ProxyServiceWrapper) Start(ctx context.Context) error {
 	}
 	s.metricsExtractor = metricsExtractor
 
-	// Create proxy service
-	proxyFactory := proxy.NewFactory(s.statsCollector, metricsExtractor, s.logger)
+	// Create proxy service. The engine's service-level logger (retry handler,
+	// dispatch) is tagged "request" so engine events filter with the rest of
+	// the per-request lifecycle in the dashboard log browser.
+	proxyFactory := proxy.NewFactory(s.statsCollector, metricsExtractor, s.logger.With("component", "request"))
 	s.proxyService, err = proxyFactory.Create(s.config.Engine, s.discoveryService, s.loadBalancer, proxyConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create proxy service: %w", err)

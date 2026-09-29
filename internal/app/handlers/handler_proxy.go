@@ -180,7 +180,7 @@ func (a *Application) initializeProxyRequest(r *http.Request) *proxyRequest {
 
 	return &proxyRequest{
 		stats:         stats,
-		requestLogger: a.logger.WithRequestID(stats.RequestID),
+		requestLogger: a.logger.WithRequestID(stats.RequestID).With("component", "request"),
 		contentType:   r.Header.Get(constants.HeaderContentType),
 		method:        r.Method,
 		path:          r.URL.Path,

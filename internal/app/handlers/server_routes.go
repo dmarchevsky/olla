@@ -92,14 +92,15 @@ func (a *Application) registerRoutes() {
 // obviously true by inspection rather than relying on evaluation-order
 // subtlety.
 func (a *Application) mountDashboard() {
+	lg := a.logger.With("component", "config")
 	routes := a.routeRegistry.GetRoutes()
 	if _, exists := routes[dashboard.DashboardRoute]; exists {
-		a.logger.Error("dashboard route collision; skipping mount",
+		lg.Error("dashboard route collision; skipping mount",
 			"route", dashboard.DashboardRoute)
 		return
 	}
 	if _, exists := routes[dashboard.SlashlessDashboardRoute]; exists {
-		a.logger.Error("dashboard route collision; skipping mount",
+		lg.Error("dashboard route collision; skipping mount",
 			"route", dashboard.SlashlessDashboardRoute)
 		return
 	}
@@ -113,13 +114,14 @@ func (a *Application) mountDashboard() {
 // Translators that implement PathProvider interface provide their own API paths
 // This enables adding new translators without modifying the routing code
 func (a *Application) registerTranslatorRoutes() {
+	lg := a.logger.With("component", "config")
 	if a.translatorRegistry == nil {
-		a.logger.Warn("Translator registry not available, skipping translator routes")
+		lg.Warn("Translator registry not available, skipping translator routes")
 		return
 	}
 
 	translators := a.translatorRegistry.GetAll()
-	a.logger.InfoWithCount("Starting registering translator routes", len(translators))
+	lg.InfoWithCount("Starting registering translator routes", len(translators))
 
 	for name, trans := range translators {
 		// Check if translator implements PathProvider for dynamic route registration
@@ -160,26 +162,26 @@ func (a *Application) registerTranslatorRoutes() {
 					"POST",
 				)
 
-				a.logger.Debug("Registered translator routes",
+				lg.Debug("Registered translator routes",
 					"translator", name,
 					"messages_path", path,
 					"models_path", modelsPath,
 					"token_count_path", tokenCountPath)
 
-				a.logger.Info("Registered translator token-count route", "translator", name, "path", path)
+				lg.Info("Registered translator token-count route", "translator", name, "path", path)
 			} else {
-				a.logger.Debug("Registered translator routes",
+				lg.Debug("Registered translator routes",
 					"translator", name,
 					"messages_path", path,
 					"models_path", modelsPath)
 			}
 		} else {
-			a.logger.Debug("Translator does not implement PathProvider, skipping route registration",
+			lg.Debug("Translator does not implement PathProvider, skipping route registration",
 				"translator", name)
 		}
 	}
 
-	a.logger.InfoWithCount("Finished registering translator routes", len(translators))
+	lg.InfoWithCount("Finished registering translator routes", len(translators))
 }
 
 // extractBasePath extracts the base path from a translator's API path
@@ -201,8 +203,9 @@ func extractBasePath(path string) string {
 // registerProviderRoutes builds HTTP paths from provider YAML configurations.
 // Falls back to static registration in test environments without profile loading.
 func (a *Application) registerProviderRoutes() {
+	lg := a.logger.With("component", "config")
 	if a.profileFactory == nil {
-		a.logger.Warn("Profile factory not available, using static route registration")
+		lg.Warn("Profile factory not available, using static route registration")
 		a.registerStaticProviderRoutes()
 		return
 	}
@@ -213,26 +216,26 @@ func (a *Application) registerProviderRoutes() {
 	// openai-compatible is special - it's a routing target but not listed as a provider
 	profiles = append(profiles, "openai-compatible")
 
-	a.logger.Info("Registering provider routes from profiles", "count", len(profiles))
+	lg.Info("Registering provider routes from profiles", "count", len(profiles))
 
 	for _, profileName := range profiles {
 		profile, err := a.profileFactory.GetProfile(profileName)
 		if err != nil {
 			// openai-compatible might not exist in minimal test setups
 			if profileName != "openai-compatible" {
-				a.logger.Warn("Failed to get profile", "profile", profileName, "error", err)
+				lg.Warn("Failed to get profile", "profile", profileName, "error", err)
 			}
 			continue
 		}
 
 		config := profile.GetConfig()
 		if config == nil || len(config.Routing.Prefixes) == 0 {
-			a.logger.Debug("Profile has no routing prefixes", "profile", profileName)
+			lg.Debug("Profile has no routing prefixes", "profile", profileName)
 			continue
 		}
 
 		// Each prefix becomes a distinct URL namespace (e.g., /olla/lmstudio/, /olla/lm-studio/)
-		a.logger.Debug("Profile has routing prefixes", "profile", profileName, "prefixes", config.Routing.Prefixes)
+		lg.Debug("Profile has routing prefixes", "profile", profileName, "prefixes", config.Routing.Prefixes)
 		for _, prefix := range config.Routing.Prefixes {
 			a.registerProviderPrefixRoutes(prefix, profileName, config)
 		}
@@ -242,9 +245,10 @@ func (a *Application) registerProviderRoutes() {
 // registerProviderPrefixRoutes creates the full routing table for one provider prefix.
 // This handles both native endpoints (e.g., Ollama's /api/tags) and OpenAI compatibility.
 func (a *Application) registerProviderPrefixRoutes(prefix, profileName string, config *domain.ProfileConfig) {
+	lg := a.logger.With("component", "config")
 	basePath := constants.DefaultOllaProxyPathPrefix + prefix + constants.DefaultPathPrefix
 
-	a.logger.Debug("Registering routes for provider", "prefix", prefix, "profile", profileName)
+	lg.Debug("Registering routes for provider", "prefix", prefix, "profile", profileName)
 
 	// Model discovery varies by provider - some use /api/tags, others /v1/models
 	if config.API.ModelDiscoveryPath != "" {

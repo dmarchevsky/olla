@@ -124,3 +124,68 @@ func TestRingBufferHandlerWithAttrsEndpoint(t *testing.T) {
 		t.Errorf("Endpoint = %q, want %q", entries[0].Endpoint, "pinned")
 	}
 }
+
+func TestRingBufferHandlerCapturesComponentAttr(t *testing.T) {
+	t.Parallel()
+
+	rb := NewRingBuffer(64)
+	base := newRingBufferHandler(rb, slog.LevelInfo)
+	l := slog.New(base.WithAttrs([]slog.Attr{slog.String("component", "discovery")}))
+
+	l.Info("Starting model discovery")
+
+	entries := queryAll(t, rb)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Component != "discovery" {
+		t.Errorf("Component = %q, want %q", entries[0].Component, "discovery")
+	}
+	if _, ok := entries[0].Attrs["component"]; ok {
+		t.Error("component attr should be promoted to Component, not kept in Attrs")
+	}
+}
+
+func TestRingBufferHandlerComponentLastAttrWins(t *testing.T) {
+	t.Parallel()
+
+	// A subsystem logger derived from a parent tagged logger (e.g. the
+	// registry logger built from the discovery service's) carries two
+	// component attrs; the last one must win.
+	rb := NewRingBuffer(64)
+	base := newRingBufferHandler(rb, slog.LevelInfo)
+	l := slog.New(base.
+		WithAttrs([]slog.Attr{slog.String("component", "discovery")}).
+		WithAttrs([]slog.Attr{slog.String("component", "registry")}))
+
+	l.Info("Started in-memory model registry")
+
+	entries := queryAll(t, rb)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Component != "registry" {
+		t.Errorf("Component = %q, want %q", entries[0].Component, "registry")
+	}
+}
+
+func TestRingBufferQueryComponentsFilter(t *testing.T) {
+	t.Parallel()
+
+	rb := NewRingBuffer(64)
+	rb.Append(Entry{Level: "info", Message: "req", Component: "request"})
+	rb.Append(Entry{Level: "info", Message: "health", Component: "health"})
+	rb.Append(Entry{Level: "info", Message: "untagged"})
+
+	entries, _, _ := rb.Query(QueryParams{Components: map[string]struct{}{"health": {}}})
+	if len(entries) != 1 || entries[0].Message != "health" {
+		t.Fatalf("expected only the health entry, got %+v", entries)
+	}
+
+	// "system" maps to the untagged bucket at the handler layer; at the
+	// buffer layer an empty-string component matches untagged entries.
+	entries, _, _ = rb.Query(QueryParams{Components: map[string]struct{}{"": {}}})
+	if len(entries) != 1 || entries[0].Message != "untagged" {
+		t.Fatalf("expected only the untagged entry, got %+v", entries)
+	}
+}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { logs, type LogFilters, type TimePreset } from '../lib/stores/logs.svelte';
+  import { logs, type LogFilters, type LogComponent, type TimePreset } from '../lib/stores/logs.svelte';
   import { endpoints } from '../lib/stores/endpoints.svelte';
   import StatusBanner from '../components/StatusBanner.svelte';
   import SortableTable from '../components/SortableTable.svelte';
@@ -13,6 +13,7 @@
   type LogRow = Omit<LogEntry, never>;
 
   const LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+  const COMPONENTS: LogComponent[] = ['request', 'health', 'discovery', 'registry', 'config', 'system'];
   const LEVEL_GLYPH: Record<LogLevel, string> = { debug: '○', info: '●', warn: '◐', error: '○' };
   const LEVEL_COLOUR: Record<LogLevel, string> = { debug: 'neutral', info: 'green', warn: 'amber', error: 'red' };
   const PRESETS: { value: TimePreset; label: string }[] = [
@@ -42,10 +43,16 @@
 
   let preset: TimePreset = $state('1h');
   let selectedLevels: Set<LogLevel> = $state(new Set());
+  let selectedComponents: Set<LogComponent> = $state(new Set());
   let endpointFilter: string = $state('');
 
   function applyFilters(): void {
-    logs.setFilters({ preset, levels: new Set(selectedLevels), endpoint: endpointFilter } satisfies LogFilters);
+    logs.setFilters({
+      preset,
+      levels: new Set(selectedLevels),
+      components: new Set(selectedComponents),
+      endpoint: endpointFilter,
+    } satisfies LogFilters);
   }
 
   function toggleLevel(level: LogLevel): void {
@@ -53,6 +60,14 @@
     if (next.has(level)) next.delete(level);
     else next.add(level);
     selectedLevels = next;
+    applyFilters();
+  }
+
+  function toggleComponent(component: LogComponent): void {
+    const next = new Set(selectedComponents);
+    if (next.has(component)) next.delete(component);
+    else next.add(component);
+    selectedComponents = next;
     applyFilters();
   }
 
@@ -71,6 +86,7 @@
   const columns: Column[] = [
     { key: 'time', label: 'Time', sortable: true, sticky: true },
     { key: 'level', label: 'Level', sortable: true },
+    { key: 'component', label: 'Source', sortable: true },
     { key: 'endpoint', label: 'Endpoint', sortable: true },
     { key: 'message', label: 'Message', sortable: false },
   ];
@@ -134,6 +150,20 @@
       {/each}
     </div>
 
+    <div class="pill-group" role="group" aria-label="Event type filter">
+      {#each COMPONENTS as component (component)}
+        <button
+          type="button"
+          class="pill pill-toggle"
+          class:active={selectedComponents.has(component)}
+          aria-pressed={selectedComponents.has(component)}
+          onclick={() => toggleComponent(component)}
+        >
+          {component}
+        </button>
+      {/each}
+    </div>
+
     <select class="log-select" bind:value={endpointFilter} onchange={onEndpointChange} aria-label="Endpoint filter">
       <option value="">All endpoints</option>
       {#each endpointOptions as name (name)}
@@ -173,6 +203,7 @@
               >
               {e.level}
             </td>
+            <td class="log-source">{e.component || '—'}</td>
             <td>{e.endpoint || '—'}</td>
             <td class="log-message">
               {e.message}
@@ -269,6 +300,11 @@
   }
   .log-message {
     word-break: break-word;
+  }
+  .log-source {
+    white-space: nowrap;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
   }
   /* Structured attrs (models=4, duration_ms=120, ...) rendered inline so the
      detail the API already returns is visible without an expand affordance. */

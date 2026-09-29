@@ -51,7 +51,9 @@ func NewDiscoveryService(
 		config:         config,
 		registryConfig: registryConfig,
 		statsCollector: statsCollector,
-		logger:         logger,
+		// Tag the service's own logs; registry/health subsystem loggers derive
+		// from this in Start (the ring buffer keeps the last component attr).
+		logger: logger.With("component", "discovery"),
 	}
 }
 
@@ -64,6 +66,11 @@ func (s *DiscoveryService) Name() string {
 func (s *DiscoveryService) Start(ctx context.Context) error {
 	s.logger.Info("Initialising discovery service")
 
+	// Subsystem loggers carry their own component tag so the dashboard log
+	// browser can filter registry and health events separately.
+	regLogger := s.logger.With("component", "registry")
+	healthLogger := s.logger.With("component", "health")
+
 	if s.statsService != nil {
 		collector, err := s.statsService.GetCollector()
 		if err != nil {
@@ -75,7 +82,7 @@ func (s *DiscoveryService) Start(ctx context.Context) error {
 	// Create model registry using factory with configuration
 	if s.registryConfig == nil {
 		// Fallback to default if no config provided
-		s.registry = registry.NewMemoryModelRegistry(s.logger)
+		s.registry = registry.NewMemoryModelRegistry(regLogger)
 	} else {
 		registryConfig := registry.RegistryConfig{
 			Type:            s.registryConfig.Type,
@@ -96,7 +103,7 @@ func (s *DiscoveryService) Start(ctx context.Context) error {
 				"discovery-on-miss will reject requests instead of refreshing endpoints")
 		}
 		var err error
-		s.registry, err = registry.NewModelRegistry(registryConfig, s.logger)
+		s.registry, err = registry.NewModelRegistry(registryConfig, regLogger)
 		if err != nil {
 			return fmt.Errorf("failed to create model registry: %w", err)
 		}
@@ -113,7 +120,7 @@ func (s *DiscoveryService) Start(ctx context.Context) error {
 		return fmt.Errorf("unsupported discovery type: %s", s.config.Type)
 	}
 
-	s.healthChecker = health.NewHTTPHealthCheckerWithDefaults(s.endpointRepo, s.logger)
+	s.healthChecker = health.NewHTTPHealthCheckerWithDefaults(s.endpointRepo, healthLogger)
 
 	// Purge sticky session entries for any backend that goes offline. The purgeFn is
 	// nil when sticky sessions are disabled, making this callback a cheap no-op then.

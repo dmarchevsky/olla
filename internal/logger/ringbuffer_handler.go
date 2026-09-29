@@ -35,6 +35,7 @@ func (h *ringBufferHandler) Handle(ctx context.Context, r slog.Record) error {
 	attrs := make(map[string]string, len(h.attrs)+r.NumAttrs())
 	endpoint := ""
 	endpointName := ""
+	component := ""
 
 	collect := func(a slog.Attr) bool {
 		switch a.Key {
@@ -43,6 +44,11 @@ func (h *ringBufferHandler) Handle(ctx context.Context, r slog.Record) error {
 		case "endpoint_name":
 			// alias used by logWithContext's detailed record
 			endpointName = a.Value.String()
+		case "component":
+			// event-type tag added via StyledLogger.With at service wiring;
+			// last occurrence wins, so a subsystem logger derived from a
+			// parent tagged logger overrides it
+			component = a.Value.String()
 		default:
 			attrs[a.Key] = stripANSI(a.Value.String())
 		}
@@ -59,11 +65,12 @@ func (h *ringBufferHandler) Handle(ctx context.Context, r slog.Record) error {
 	}
 
 	h.rb.Append(Entry{
-		Time:     r.Time,
-		Level:    levelString(r.Level),
-		Message:  stripANSI(r.Message),
-		Endpoint: endpoint,
-		Attrs:    attrs,
+		Time:      r.Time,
+		Level:     levelString(r.Level),
+		Message:   stripANSI(r.Message),
+		Endpoint:  endpoint,
+		Component: component,
+		Attrs:     attrs,
 	})
 	return nil
 }

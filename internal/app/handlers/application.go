@@ -158,8 +158,9 @@ func NewApplication(
 		logger:        logger,
 	}
 
-	// Create route registry
-	routeRegistry := router.NewRouteRegistry(logger)
+	// Create route registry. Route-registration events ("Registered web
+	// routes") belong to the config bucket in the dashboard log browser.
+	routeRegistry := router.NewRouteRegistry(logger.With("component", "config"))
 
 	// Create HTTP server
 	server := &http.Server{
